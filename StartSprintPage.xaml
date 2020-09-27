@@ -1,0 +1,32 @@
+﻿<Page x:Class="Marble.StartSprintPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:Marble"
+      mc:Ignorable="d" 
+      d:DesignHeight="97.131" d:DesignWidth="193.852"
+      Title="Page1" Width="175" Height="80" Background="{DynamicResource WindowBackground}" Focusable="False"
+       >
+
+    <Grid>
+        <TextBox x:Name="sprintText" HorizontalAlignment="Center" Height="32" Margin="-64,0,0,0"
+                 TextWrapping="Wrap" Text="25" VerticalAlignment="Center" Width="48" FontSize="20" 
+                 FontWeight="Bold" TextAlignment="Center" BorderThickness="0" Background="#FF222222" 
+                 Foreground="{DynamicResource MyWhite}" BorderBrush="{DynamicResource MyWhite}"
+                 ToolTip="Minutes to spend in deep work."
+                 
+                 />
+        <TextBox x:Name="restText" HorizontalAlignment="Center" Height="32" Margin="64,0,0,0" 
+                 TextWrapping="Wrap" Text="5" VerticalAlignment="Center" Width="48" FontSize="20" 
+                 FontWeight="Bold" TextAlignment="Center" BorderThickness="0" Background="#FF222222" 
+                 Foreground="{DynamicResource MyWhite}" BorderBrush="{DynamicResource MyWhite}"
+                 ToolTip="Minutes to wait after deep work to let your brain 🧠 rest."
+                 
+                 />
+        <Label Content="Sprint" HorizontalAlignment="Center" Margin="-64,50,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MyWhite}" FontSize="10" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
+        <Label Content="Rest" HorizontalAlignment="Center" Margin="64,50,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MyWhite}" FontSize="10" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
+        <Label Content="Press enter to start." HorizontalAlignment="Center" Margin="0,-2,0,0" VerticalAlignment="Top" Foreground="{DynamicResource DimHint}" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
+
+    </Grid>
+</Page>

@@ -1,0 +1,28 @@
+﻿<Application x:Class="Marble.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Marble"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+
+        <SolidColorBrush x:Key="DimHint" Color="#FF555555"/>
+        <SolidColorBrush x:Key="WindowBackground" Color="#FF111111"/>
+        <SolidColorBrush x:Key="WindowBorder" Color="#FF444444"/>
+        <SolidColorBrush x:Key="WindowForeground" Color="#FFCCCCCC"/>
+        <SolidColorBrush x:Key="MyWhite" Color="#FFCCCCCC"/> <!-- deprecated -->
+        
+        <SolidColorBrush x:Key="CurrentForeground" Color="#FFCCCCCC"/>
+
+
+        <SolidColorBrush x:Key="SprintBackground" Color="#d80000"/>
+        <SolidColorBrush x:Key="SprintBorder" Color="#ff4f00"/>
+        <SolidColorBrush x:Key="SprintForeground" Color="#fff"/>
+        <SolidColorBrush x:Key="RestBackground" Color="#00ab36"/>
+        <SolidColorBrush x:Key="RestBorder" Color="#23f114"/>
+        <SolidColorBrush x:Key="RestForeground" Color="#fff"/>
+        
+        
+        <FontFamily x:Key="LabelFont">Segoe UI Light</FontFamily>
+
+    </Application.Resources>
+</Application>
