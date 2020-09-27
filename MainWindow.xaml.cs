@@ -1,4 +1,15 @@
-﻿using System;
+﻿// Marble
+// (C) 2020 Mukunda Johnson
+//
+// Copyright <YEAR> <COPYRIGHT HOLDER>
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,156 +28,14 @@ using System.Windows.Shell;
 using System.Windows.Interop;
 using System.Runtime.InteropServices;
 
+///////////////////////////////////////////////////////////////////////////////
 namespace Marble
 {
-    // License MIT 2019 Mitch Gaffigan
-    // https://stackoverflow.com/a/58160366/138200
-    public class SysMenu
-    {
-        private readonly Window Window;
-        private readonly List<MenuItem> Items;
-        private bool isInitialized;
-        private IntPtr NextID = (IntPtr)1000;
-        private int StartPosition = 5;
-
-        public SysMenu(Window window)
-        {
-            this.Items = new List<MenuItem>();
-            this.Window = window ?? throw new ArgumentNullException(nameof(window));
-            this.Window.SourceInitialized += this.Window_SourceInitialized;
-        }
-
-        class MenuItem
-        {
-            public IntPtr ID;
-            public string Text;
-            public Action OnClick;
-        }
-
-        public void AddSysMenuItem(string text, Action onClick)
-        {
-            var thisId = NextID;
-            NextID += 1;
-
-            var newItem = new MenuItem()
-            {
-                ID = thisId,
-                Text = text,
-                OnClick = onClick
-            };
-            Items.Add(newItem);
-            var thisPosition = StartPosition + Items.Count;
-
-            if (isInitialized)
-            {
-                var hwndSource = PresentationSource.FromVisual(Window) as HwndSource;
-                if (hwndSource == null)
-                {
-                    return;
-                }
-                var hSysMenu = GetSystemMenu(hwndSource.Handle, false);
-                InsertMenu(hSysMenu, thisPosition, MF_BYPOSITION, thisId, text);
-            }
-        }
-
-        private void Window_SourceInitialized(object sender, EventArgs e)
-        {
-            var hwndSource = PresentationSource.FromVisual(Window) as HwndSource;
-            if (hwndSource == null)
-            {
-                return;
-            }
-
-            hwndSource.AddHook(WndProc);
-
-            var hSysMenu = GetSystemMenu(hwndSource.Handle, false);
-
-            /// Create our new System Menu items just before the Close menu item
-            InsertMenu(hSysMenu, StartPosition, MF_BYPOSITION | MF_SEPARATOR, IntPtr.Zero, string.Empty);
-            int pos = StartPosition + 1;
-            foreach (var item in Items)
-            {
-                InsertMenu(hSysMenu, pos, MF_BYPOSITION, item.ID, item.Text);
-                pos += 1;
-            }
-
-            isInitialized = true;
-        }
-
-        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-        {
-            if (msg == WM_SYSCOMMAND)
-            {
-                var item = Items.FirstOrDefault(d => d.ID == wParam);
-                if (item != null)
-                {
-                    item.OnClick();
-                    handled = true;
-                    return IntPtr.Zero;
-                }
-            }
-
-            return IntPtr.Zero;
-        }
-
-        #region Win32
-
-        private const Int32 WM_SYSCOMMAND = 0x112;
-        private const Int32 MF_SEPARATOR = 0x800;
-        private const Int32 MF_BYPOSITION = 0x400;
-        private const Int32 MF_STRING = 0x0;
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
-
-        [DllImport("user32.dll")]
-        private static extern bool InsertMenu(IntPtr hMenu, int wPosition, int wFlags, IntPtr wIDNewItem, string lpNewItem);
-
-        #endregion
-    }
-    public static class WindowFlasher
-    {
-        private const UInt32 FLASHW_STOP = 0; //Stop flashing. The system restores the window to its original state.        private const UInt32 FLASHW_CAPTION = 1; //Flash the window caption.        
-        private const UInt32 FLASHW_TRAY = 2; //Flash the taskbar button.        
-        private const UInt32 FLASHW_ALL = 3; //Flash both the window caption and taskbar button.        
-        private const UInt32 FLASHW_TIMER = 4; //Flash continuously, until the FLASHW_STOP flag is set.        
-        private const UInt32 FLASHW_TIMERNOFG = 12; //Flash continuously until the window comes to the foreground.  
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct FLASHWINFO
-        {
-            public UInt32 cbSize; //The size of the structure in bytes.            
-            public IntPtr hwnd; //A Handle to the Window to be Flashed. The window can be either opened or minimized.
-
-
-            public UInt32 dwFlags; //The Flash Status.            
-            public UInt32 uCount; // number of times to flash the window            
-            public UInt32 dwTimeout; //The rate at which the Window is to be flashed, in milliseconds. If Zero, the function uses the default cursor blink rate.        
-        }
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool FlashWindowEx(ref FLASHWINFO pwfi);
-
-        public static void FlashWindow(this Window win, UInt32 count = UInt32.MaxValue)
-        {
-            //Don't flash if the window is active            
-            // if (win.IsActive) return;
-            WindowInteropHelper h = new WindowInteropHelper(win);
-            FLASHWINFO info = new FLASHWINFO
-            {
-                hwnd = h.Handle,
-                dwFlags = FLASHW_TRAY | FLASHW_TIMER,
-                uCount = count,
-                dwTimeout = 1000
-            };
-
-            info.cbSize = Convert.ToUInt32(Marshal.SizeOf(info));
-            FlashWindowEx(ref info);
-        }
-    }
-
+    //-------------------------------------------------------------------------
     public class Sprint {
+        // For speeding things up to test out the system.
+        public static double debugTimeScale = 1.0;
+
         bool running;
         double sprintMinutes { get; set; }
         double restMinutes { get; set; }
@@ -217,7 +86,7 @@ namespace Marble
             }
             else
             {
-                double timeElapsed = (DateTime.Now - this.startTime).TotalSeconds*11;
+                double timeElapsed = (DateTime.Now - this.startTime).TotalSeconds * debugTimeScale;
                 status.totalElapsedSeconds = timeElapsed;
 
                 if (timeElapsed < this.sprintMinutes * 60.0)
@@ -243,9 +112,8 @@ namespace Marble
             return status;
         }
     }
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
+
+    //-------------------------------------------------------------------------
     public partial class MainWindow : Window
     {
         byte[] pixels = new byte[32 * 4 * 32];
@@ -261,11 +129,12 @@ namespace Marble
         public MainWindow()
         {
             InitializeComponent();
-            
+
             System.Windows.Threading.DispatcherTimer dispatcherTimer = new System.Windows.Threading.DispatcherTimer();
             dispatcherTimer.Tick += Refresh;
             dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 250);
             dispatcherTimer.Start();
+
         }
 
         private void TimerTest(object sender, EventArgs e)
@@ -380,9 +249,6 @@ namespace Marble
 
                 if (textType == "numbers")
                 {
-                    // Convert to minutes.
-                    const double spacing = 24.0;
-
 
                     var textBrush = brushConverter.ConvertFrom("#fff") as SolidColorBrush;
                     /*
@@ -480,8 +346,6 @@ namespace Marble
 
         private void UpdateDisplay()
         {
-            this.InvalidateVisual();
-
             var status = sprint.GetStatus();
             if (status.mode == Sprint.Mode.Stopped || status.mode == Sprint.Mode.After)
             {
@@ -504,7 +368,7 @@ namespace Marble
                 statusLabel.Content = "Deep Work";
                 var seconds = Math.Ceiling(status.secondsRemaining);
                 timerLabel.Content = $"{Math.Floor(seconds / 60)}:{seconds % 60:00}";
-                this.Title = "Marble - Deep Work";
+                this.Title = "Marble – Deep Work";
             }
             else if (status.mode == Sprint.Mode.Resting)
             {
@@ -516,9 +380,16 @@ namespace Marble
                 statusLabel.Content = "Rest";
                 var seconds = Math.Ceiling(status.secondsRemaining);
                 timerLabel.Content = $"{Math.Floor(seconds / 60)}:{seconds % 60:00}";
-                this.Title = "Marble - Rest";
+                this.Title = "Marble – Rest";
             }
             UpdateWindowIcon(status);
+
+
+            RenderTargetBitmap bmp = new RenderTargetBitmap(
+                (int)this.ActualWidth, (int)this.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            bmp.Render(this);
+            
+
         }
 
         public void StartWork(double sprintMinutes, double restMinutes)
@@ -547,5 +418,53 @@ namespace Marble
             }
         }
 
+        private void PopulateContextMenu()
+        {
+            var status = this.sprint.GetStatus();
+            var menu = new ContextMenu();
+            
+
+            if( status.mode == Sprint.Mode.Sprinting || status.mode == Sprint.Mode.Resting )
+            {
+                var item = new MenuItem();
+                
+                item.Header = "Reset";
+                item.Click += (obj, e) =>
+                {
+                    MessageBoxResult result = MessageBox.Show("Are you sure you want to reset?", "Reset Marble", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        this.sprint.Cancel();
+                    }
+                };
+                menu.Items.Add(item);
+            }
+            {
+                var item = new MenuItem();
+                item.Header = "Settings";
+                item.Click += (obj, e) =>
+                {
+                    // Open settings.
+                };
+                menu.Items.Add(item);
+            }
+            menu.Items.Add(new Separator());
+            {
+                var item = new MenuItem();
+                item.Header = "Exit";
+                item.Click += (obj, e) =>
+                {
+                    Application.Current.Shutdown();
+                };
+                menu.Items.Add(item);
+            }
+            
+            this.ContextMenu = menu;
+        }
+
+        private void Window_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            PopulateContextMenu();
+        }
     }
 }

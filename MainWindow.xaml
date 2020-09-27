@@ -16,8 +16,8 @@
         
         MouseUp="Window_MouseUp"
         PreviewKeyDown="Window_PreviewKeyDown"
-        
-        FontFamily="Segoe UI Light" Foreground="{DynamicResource WindowForeground}" Focusable="False">
+        ContextMenuOpening="Window_ContextMenuOpening"
+        FontFamily="Segoe UI Light" Foreground="{DynamicResource WindowForeground}">
     <Window.Resources>
     </Window.Resources>
     <Window.TaskbarItemInfo>
@@ -50,7 +50,7 @@
     </Grid>
     <Window.ContextMenu>
         <ContextMenu Placement="Right" AlternationCount="-3">
-
+            
         </ContextMenu>
     </Window.ContextMenu>
 </Window>
