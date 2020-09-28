@@ -1,18 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
+﻿// Marbles
+// (C) 2020 Mukunda Johnson
+/////////////////////////////////////////////////////////////////////////////////////////
+using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 namespace Marbles
 {
     //-----------------------------------------------------------------------------------
+    // Manages global program settings and synchronizing them to disk in JSON format.
     public class Settings
     {
         private readonly string name = "settings";
@@ -78,6 +76,8 @@ namespace Marbles
             settingsWatcher.EnableRaisingEvents = true;
         }
 
+        //-------------------------------------------------------------------------------
+        // Returns the path to User/AppData/Roaming/Marbles.
         public static string AppDataFolder
         {
             get
@@ -88,6 +88,7 @@ namespace Marbles
         }
 
         //-------------------------------------------------------------------------------
+        // Returns the path to User/AppData/Roaming/Marbles/settings.json
         public string SettingsFilePath
         {
             get
@@ -97,25 +98,36 @@ namespace Marbles
         }
 
         //-------------------------------------------------------------------------------
+        // Opens the default text editor with the settings json file.
         public void OpenEditor()
         {
             Save();
-            System.Diagnostics.Process.Start(SettingsFilePath);
+            Process.Start(SettingsFilePath);
         }
 
+        //-------------------------------------------------------------------------------
+        // Queues a settings load operation. The delay is meant to allow the computer
+        //  to finish writing the settings file before we read from it. If an IO error
+        //  occurs we retry after 1000ms.
         public void QueueLoad(int delayMs = 100)
         {
             loadCaller.Call(Load, delayMs);
         }
         
         //-------------------------------------------------------------------------------
+        // Load or reload the settings from disk.
         public void Load()
         {
             if (File.Exists(SettingsFilePath))
             {
                 var options = new System.Text.Json.JsonSerializerOptions
                 {
+                    // Allow JSON comments (even though they would be overwritten when
+                    //  we save).
+                    // Basically, we want to be very permissive here. Strictness is only
+                    //  annoying for the user.
                     ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip,
+                    // Same with trailing commas and case insensitivity.
                     AllowTrailingCommas = true,
                     PropertyNameCaseInsensitive = false,
                 };
@@ -137,12 +149,14 @@ namespace Marbles
                 }
                 catch
                 {
-
+                    // Serialization error.
                 }
 
+                // If we make it to here and it's null, this is the first time we're
+                //  running or something went wrong.
                 if (this.fields == null) this.fields = new Fields();
 
-                // Sanitize.
+                // Sanitization here. Most is handled by JSON format parsing.
                 if (this.fields.MarblesDoneToday < 0) this.fields.MarblesDoneToday = 0;
             }
             else
@@ -160,6 +174,7 @@ namespace Marbles
         {
             var options = new System.Text.Json.JsonSerializerOptions
             {
+                // Pretty-print so it can be edited easily by humies.
                 WriteIndented = true,
             };
             string text = System.Text.Json.JsonSerializer.Serialize(fields, options);
@@ -171,8 +186,10 @@ namespace Marbles
             }
             catch (IOException)
             {
-                // Can't save settings. Oh well. Not critical.
+                // Couldn't save settings. Probably should tell someone about this.
+                // Oh well...
             }
         }
     }
 }
+/////////////////////////////////////////////////////////////////////////////////////////

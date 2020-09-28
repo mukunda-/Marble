@@ -1,4 +1,9 @@
-﻿using System;
+﻿// Marbles
+// (C) 2020 Mukunda Johnson
+//
+// See LICENSE.TXT
+/////////////////////////////////////////////////////////////////////////////////////////
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;

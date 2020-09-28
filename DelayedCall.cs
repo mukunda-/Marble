@@ -1,12 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿// Marbles
+// (C) 2020 Mukunda Johnson
+/////////////////////////////////////////////////////////////////////////////////////////
+using System;
 using System.Threading.Tasks;
 using System.Windows;
 
+/////////////////////////////////////////////////////////////////////////////////////////
 namespace Marbles
 {
+    //-----------------------------------------------------------------------------------
+    // This handles making delayed calls on a function.
     public class DelayedCall
     {
         public delegate void Callback();
@@ -27,7 +30,12 @@ namespace Marbles
             {
                 if (mySerial == serial)
                 {
-                    Application.Current.Dispatcher.Invoke(callback);
+                    // The app might exit before this triggers. Not really sure how the
+                    //  heck the system manages these threads, but it scary.
+                    if (Application.Current != null)
+                    {
+                        Application.Current.Dispatcher.Invoke(callback);
+                    }
                 }
                 else
                 {
@@ -37,3 +45,4 @@ namespace Marbles
         }
     }
 }
+/////////////////////////////////////////////////////////////////////////////////////////

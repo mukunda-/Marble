@@ -1,28 +1,13 @@
 ﻿// Marbles
 // (C) 2020 Mukunda Johnson
-//
-// See LICENSE.TXT
-
+/////////////////////////////////////////////////////////////////////////////////////////
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Windows.Shell;
 
-using System.Windows.Interop;
-using System.Runtime.InteropServices;
-using System.ComponentModel;
-using System.IO;
 /////////////////////////////////////////////////////////////////////////////////////////
 namespace Marbles
 {
@@ -30,7 +15,10 @@ namespace Marbles
     public partial class MainWindow : Window
     {
         // What is the proper way to define something static like this?
+        // This is the font to use for drawing the taskbar button badge.
         private static readonly Typeface ICON_TYPEFACE = new Typeface("Arial");
+
+        // Reference to our App instance.
         private readonly App app;
 
         //-------------------------------------------------------------------------------
@@ -90,6 +78,7 @@ namespace Marbles
         }
 
         //-------------------------------------------------------------------------------
+        // Called when a sprint completes.
         private void OnSprintCompleted(object sender, EventArgs e)
         {
             UpdateMarblesToday(true);
@@ -336,6 +325,7 @@ namespace Marbles
             }
             UpdateWindowIcon(status);
 
+            
             // TODO...
             //RenderTargetBitmap bmp = new RenderTargetBitmap(
             //    (int)this.ActualWidth, (int)this.ActualHeight, 96, 96, PixelFormats.Pbgra32);
@@ -428,3 +418,4 @@ namespace Marbles
         }
     }
 }
+/////////////////////////////////////////////////////////////////////////////////////////

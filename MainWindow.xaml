@@ -16,7 +16,8 @@
         MouseUp="Window_MouseUp"
         PreviewKeyDown="Window_PreviewKeyDown"
         ContextMenuOpening="Window_ContextMenuOpening"
-        FontFamily="Segoe UI Light" Foreground="{DynamicResource WindowForeground}">
+        FontFamily="Segoe UI Light"
+        Foreground="{DynamicResource WindowForeground}">
     <Window.Resources>
     </Window.Resources>
     <Window.TaskbarItemInfo>
@@ -44,8 +45,6 @@
         <Frame x:Name="startSprintDialog" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" 
                Source="StartSprintPage.xaml" NavigationUIVisibility="Hidden"/>
-
-
     </Grid>
     <Window.ContextMenu>
         <ContextMenu Placement="Right" AlternationCount="-3">
