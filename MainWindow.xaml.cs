@@ -23,396 +23,82 @@ using System.Windows.Interop;
 using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.IO;
-
 /////////////////////////////////////////////////////////////////////////////////////////
 namespace Marbles
 {
-    public class DelayedCall
-    {
-        public delegate void Callback();
-
-        public int serial;
-
-        public void Call(Callback callback, int delayMs = 0)
-        {
-            serial++;
-            if (delayMs == 0)
-            {
-                callback();
-            }
-
-            int mySerial = serial;
-            Task.Delay(delayMs).ContinueWith(t =>
-            {
-                if (mySerial == serial)
-                {
-                    Application.Current.Dispatcher.Invoke(callback);
-                }
-                else
-                {
-                    // This call was cancelled.
-                }
-            });
-        }
-    }
-    //-----------------------------------------------------------------------------------
-    public class Settings
-    {
-        private readonly string name = "settings";
-        private readonly System.IO.FileSystemWatcher settingsWatcher;
-
-        // To ignore reloading configuration when the app is changing the settings file.
-        // Also used to prevent some "bounce trigger" issues that the filesystem watcher
-        //  has.
-        private DateTime ignoreFileChangesAt = DateTime.MinValue;
-
-        public event EventHandler Loaded;
-
-        DelayedCall loadCaller;
-
-        public class Fields 
-        {
-            // Using strings for these two so it keeps the text boxes set as is.
-            public string SprintTime { get; set; } = "25";
-            public string RestTime { get; set; } = "5";
-
-            public int MarblesDoneToday { get; set; } = 0;
-            public string DateToday { get; set; } = "";
-            public bool ShowSprintBadge { get; set; } = true;
-            public bool ShowRestBadge { get; set; } = true;
-            public bool MinimizeWhenSprintStarts { get; set; } = false;
-            public bool PopupWhenRestStarts { get; set; } = false;
-            public bool ColorTaskbarDuringSprint { get; set; } = true;
-            public bool ColorTaskbarDuringRest { get; set; } = true;
-            public bool ShowYellowFlashAfterRest { get; set; } = true;
-            public bool WindowAlwaysOnTop { get; set; } = false;
-        };
-
-        public Fields fields = null;
-        private Task queueLoadTask = null;
-
-        //-------------------------------------------------------------------------------
-        public Settings()
-        {
-            loadCaller = new DelayedCall();
-            System.IO.Directory.CreateDirectory(AppDataFolder);
-            Load();
-
-            settingsWatcher = new System.IO.FileSystemWatcher
-            {
-                NotifyFilter = System.IO.NotifyFilters.LastWrite,
-                Path         = AppDataFolder,
-                Filter       = name + ".json"
-            };
-            settingsWatcher.Changed += (sender, e) =>
-            {
-                if (e.ChangeType != System.IO.WatcherChangeTypes.Changed) return;
-
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    if ((DateTime.Now - ignoreFileChangesAt).Milliseconds < 100)
-                    {
-                        return;
-                    }
-                    ignoreFileChangesAt = DateTime.Now;
-                    System.Diagnostics.Debug.WriteLine("Reloading settings.");
-                    QueueLoad(250);
-                });
-            };
-            settingsWatcher.EnableRaisingEvents = true;
-        }
-        
-        public static string AppDataFolder
-        {
-            get
-            {
-                return System.IO.Path.Combine(Environment.GetFolderPath(
-                    Environment.SpecialFolder.ApplicationData), "Marbles");
-            }
-        }
-
-        //-------------------------------------------------------------------------------
-        public string SettingsFilePath
-        {
-            get
-            {
-                return System.IO.Path.Combine(AppDataFolder, this.name + ".json");
-            }
-        }
-
-        //-------------------------------------------------------------------------------
-        public void OpenEditor()
-        {
-            Save();
-            System.Diagnostics.Process.Start(SettingsFilePath);
-        }
-
-        public void QueueLoad( int delayMs = 100 )
-        {
-            loadCaller.Call(Load, delayMs);
-        }
-
-        //-------------------------------------------------------------------------------
-        public void Load()
-        {
-            if (System.IO.File.Exists(SettingsFilePath))
-            {
-                var options = new System.Text.Json.JsonSerializerOptions
-                {
-                    ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip,
-                    AllowTrailingCommas = true,
-                    PropertyNameCaseInsensitive = false,
-                };
-
-                try
-                {
-                    string json;
-                    try
-                    {
-                        json = System.IO.File.ReadAllText(SettingsFilePath);
-                    }
-                    catch (IOException e)
-                    {
-                        // IO error (like they are still writing the file). Wait and try again.
-                        QueueLoad(1000);
-                        return;
-                    }
-                    this.fields = System.Text.Json.JsonSerializer.Deserialize<Fields>(json, options);
-                }
-                catch
-                {
-                    
-                }
-
-                if (this.fields == null) this.fields = new Fields();
-
-                // Sanitize.
-                if (this.fields.MarblesDoneToday < 0) this.fields.MarblesDoneToday = 0;
-            }
-            else
-            {
-                // Will use default values.
-                this.fields = new Fields();
-                Save();
-            }
-
-            EventHandler handler = Loaded;
-            handler?.Invoke(this, null);
-        }
-
-        //-------------------------------------------------------------------------------
-        public void Save()
-        {
-            var options = new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-            };
-            string text = System.Text.Json.JsonSerializer.Serialize(fields, options);
-
-            ignoreFileChangesAt = DateTime.Now;
-            try
-            {
-                System.IO.File.WriteAllText(SettingsFilePath, text);
-            }
-            catch (IOException e)
-            {
-                // Can't save settings. Oh well. Not critical.
-            }
-        }
-    }
-
-    //-----------------------------------------------------------------------------------
-    public class Sprint {
-        // For speeding things up to test out the system.
-        public static double debugTimeScale = 1.0;
-
-        bool running;
-        bool completed = false;
-        double SprintMinutes { get; set; }
-        double RestMinutes { get; set; }
-        DateTime StartTime { get; set; }
-
-        public event EventHandler SprintCompleted;
-
-        public enum Mode {
-            Stopped,
-            Sprinting,
-            Resting,
-            After
-        }
-
-        public struct Status {
-            public Mode mode;
-            public double secondsRemaining;
-            public double secondsInto;
-            public double totalElapsedSeconds;
-            public double sprintMinutes;
-            public double restMinutes;
-        }
-
-        public void Start( double sprintMinutes, double restMinutes)
-        {
-            this.SprintMinutes = sprintMinutes;
-            this.RestMinutes = restMinutes;
-            this.StartTime = DateTime.Now;
-            this.running = true;
-            this.completed = false;
-        }
-
-        public void Cancel()
-        {
-            if (!this.running) return;
-            this.running = false;
-        }
-
-        private void SetComplete()
-        {
-            if (this.completed) return;
-            this.completed = true;
-            SprintCompleted?.Invoke(this, null);
-        }
-
-        public Status GetStatus()
-        {
-            Status status;
-            status.sprintMinutes = this.SprintMinutes;
-            status.restMinutes = this.RestMinutes;
-
-            if (!running)
-            {
-                status.mode = Mode.Stopped;
-                status.totalElapsedSeconds = 0.0;
-                status.secondsRemaining = 0.0;
-                status.secondsInto = 0.0;
-            }
-            else
-            {
-                double timeElapsed = (DateTime.Now - this.StartTime).TotalSeconds * debugTimeScale;
-                status.totalElapsedSeconds = timeElapsed;
-
-                if (timeElapsed < this.SprintMinutes * 60.0)
-                {
-                    status.mode = Mode.Sprinting;
-                    status.secondsRemaining = this.SprintMinutes * 60.0 - timeElapsed;
-                    status.secondsInto = timeElapsed;
-                }
-                else if (timeElapsed < (this.SprintMinutes + this.RestMinutes) * 60.0)
-                {
-                    SetComplete();
-                    status.mode = Mode.Resting;
-                    status.secondsRemaining = (this.SprintMinutes + this.RestMinutes) * 60.0 - timeElapsed;
-                    status.secondsInto = timeElapsed - this.SprintMinutes * 60;
-                }
-                else
-                {
-                    SetComplete();
-                    status.mode = Mode.After;
-                    status.secondsRemaining = (this.SprintMinutes + this.RestMinutes) * 60 - timeElapsed;
-                    status.secondsInto = timeElapsed - (this.SprintMinutes + this.RestMinutes) * 60;
-                }
-            }
-
-            return status;
-        }
-    }
-
     //-----------------------------------------------------------------------------------
     public partial class MainWindow : Window
     {
-        byte[] pixels = new byte[32 * 4 * 32];
         // What is the proper way to define something static like this?
         private static readonly Typeface ICON_TYPEFACE = new Typeface("Arial");
-
-        Sprint sprint = new Sprint();
-        Settings settings;
+        private readonly App app;
 
         //-------------------------------------------------------------------------------
         public MainWindow()
         {
+            app = Application.Current as App;
             InitializeComponent();
 
-            this.settings = new Settings();
-            this.settings.Loaded += OnSettingsLoaded;
-            OnSettingsLoaded(null, null);
-            this.sprint.SprintCompleted += OnSprintCompleted;
+            app.settings.Loaded        += ApplySettings;
+            ApplySettings(app.settings);
 
-            System.Windows.Threading.DispatcherTimer dispatcherTimer = new System.Windows.Threading.DispatcherTimer();
-            dispatcherTimer.Tick += OnPeriodicRefresh;
-            dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 250);
-            dispatcherTimer.Start();
+            app.sprint.SprintStarted   += OnSprintStart;
+            app.sprint.SprintCompleted += OnSprintCompleted;
+            app.PeriodicUpdate         += OnPeriodicUpdate;
+        }
+
+        //-------------------------------------------------------------------------------
+        private void OnPeriodicUpdate()
+        {
+            UpdateDisplay();
+        }
+
+        //-------------------------------------------------------------------------------
+        private void ApplySettings(Settings settings)
+        {
+            // Force refresh the icon since settings might cause it to look different.
+            // Might not be necessary but just in case down the road...
+            this.lastIconSerial = "";
+            this.lastIconUpdate = DateTime.MinValue;
+            this.Topmost = settings.fields.WindowAlwaysOnTop;
+            UpdateMarblesToday(false);
         }
 
         //-------------------------------------------------------------------------------
         private void UpdateMarblesToday( bool increment )
         {
+            var settings = App.Settings;
             bool save = false;
             string dateString = DateTime.Now.ToString("MM/dd/yyyy");
-            if (dateString != this.settings.fields.DateToday)
+            if (dateString != settings.fields.DateToday)
             {
-                this.settings.fields.DateToday = dateString;
-                this.settings.fields.MarblesDoneToday = 0;
+                settings.fields.DateToday = dateString;
+                settings.fields.MarblesDoneToday = 0;
                 save = true;
             }
 
             if (increment)
             {
-                this.settings.fields.MarblesDoneToday++;
+                settings.fields.MarblesDoneToday++;
+                save = true;
             }
 
             if (save)
             {
-                if (this.settings.fields.MarblesDoneToday == 0)
-                {
-                    statusLabel.Content = "Press enter to start.";
-                }
-                else
-                {
-                    var m = this.settings.fields.MarblesDoneToday;
-                    statusLabel.Content = $"{m} marble{(m == 1 ? "" : "s")} done.";
-                }
-
-                this.settings.Save();
+                settings.Save();
             }
         }
 
         //-------------------------------------------------------------------------------
-        private void OnSettingsLoaded(object sender, EventArgs e)
-        {
-            //(startSprintDialog.Content as StartSprintPage).SetSprintSettings(
-            //    this.settings.fields.SprintTime, this.settings.fields.RestTime);
-            this.lastIconSerial = "";
-            this.lastIconUpdate = DateTime.MinValue;
-            this.Topmost = this.settings.fields.WindowAlwaysOnTop;
-
-            UpdateMarblesToday(false);
-        }
-
         private void OnSprintCompleted(object sender, EventArgs e)
         {
             UpdateMarblesToday(true);
+
+            if (app.settings.fields.PopupWhenRestStarts)
+            {
+                this.WindowState = WindowState.Normal;
+            }
         }
-
-        //-------------------------------------------------------------------------------
-        private void OnClosing(object sender, EventArgs e)
-        {
-            this.settings.Save();
-        }
-
-        //-------------------------------------------------------------------------------
-        private void TimerTest(object sender, EventArgs e)
-        {
-
-            this.TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Paused;
-            this.TaskbarItemInfo.ProgressValue = 1.0 - this.TaskbarItemInfo.ProgressValue;
-            
-        }
-
-        //-------------------------------------------------------------------------------
-        private void OnPeriodicRefresh(object sender, EventArgs e)
-        {
-            UpdateDisplay();
-        }
-
 
         private DateTime lastIconUpdate;
         private string lastIconSerial = "";
@@ -427,55 +113,89 @@ namespace Marbles
             }
             this.lastIconUpdate = DateTime.Now;
             
-
             SolidColorBrush iconBrush;
-            string squareColor;
-            string textType;
-            int maxNumber = 0;
+            string squareColor = "";
+            string textType = "";
+
+            bool hideIcon = false;
             
             if (status.mode == Sprint.Mode.After && status.secondsInto < 10.0)
             {
-                textType = "none";
-                squareColor = "#f1e914";
-                if (status.secondsInto % 2 < 1.0)
-                    this.TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Paused;
+                if (app.settings.fields.ShowYellowFlashAfterRest)
+                {
+                    if (status.secondsInto % 2 < 1.0)
+                        TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Paused;
+                    else
+                        TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
+                    TaskbarItemInfo.ProgressValue = 1;
+                }
                 else
-                    this.TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
-                this.TaskbarItemInfo.ProgressValue = 1;
+                {
+                    TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
+                }
 
-                this.TaskbarItemInfo.Overlay = null;
-                return;
+                hideIcon = true;
             }
             else if (status.mode == Sprint.Mode.Sprinting)
             {
                 textType = "numbers";
                 squareColor = "#e41313";
-                this.TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Error;
-                this.TaskbarItemInfo.ProgressValue = 1.0;
-                maxNumber = (int)Math.Floor(status.sprintMinutes);
+
+                if (app.settings.fields.ColorTaskbarDuringSprint)
+                {
+                    TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Error;
+                    TaskbarItemInfo.ProgressValue = 1.0;
+                }
+                else
+                {
+                    TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
+                }
+
+                if (!app.settings.fields.ShowSprintBadge)
+                {
+                    // Setting is disabled.
+                    hideIcon = true;
+                }
+
             }
             else if (status.mode == Sprint.Mode.Resting)
             {
                 textType = "numbers";
                 squareColor = "#56be22";
-                if (status.secondsInto < 5.0)
+                if (app.settings.fields.ColorTaskbarDuringRest)
                 {
-                    this.TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Indeterminate;
+                    if (status.secondsInto < 5.0)
+                    {
+                        TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Indeterminate;
+                    }
+                    else
+                    {
+                        TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Normal;
+                    }
+                    TaskbarItemInfo.ProgressValue = 1.0;
                 }
                 else
                 {
-                    this.TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Normal;
+                    TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
                 }
-                this.TaskbarItemInfo.ProgressValue = 1.0;
-                maxNumber = (int)Math.Floor(status.restMinutes);
+
+                if (!app.settings.fields.ShowRestBadge)
+                {
+                    // Setting is disabled.
+                    hideIcon = true;
+                }
             }
             else
             {
                 // Stopped
-                textType = "dot";
-                squareColor = "#222";
-                this.TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
-                this.TaskbarItemInfo.Overlay = null;
+                TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
+                hideIcon = true;
+            }
+
+            if (hideIcon)
+            {
+                this.lastIconSerial = "";
+                TaskbarItemInfo.Overlay = null;
                 return;
             }
 
@@ -521,17 +241,9 @@ namespace Marbles
                                 8 - text.Height / 2));
 
                 }
-                else if (textType == "dot")
-                {
-                    // Unused.
-                }
-                else if (textType == "none")
-                {
-
-                }
             }
 
-            this.TaskbarItemInfo.Overlay = new DrawingImage(visual.Drawing);
+            TaskbarItemInfo.Overlay = new DrawingImage(visual.Drawing);
         }
 
 
@@ -542,8 +254,8 @@ namespace Marbles
         {
             if (e.ChangedButton == MouseButton.Left)
             {
-                mouseWillClick = true;
-                mouseDownPosition = e.GetPosition( this );
+                this.mouseWillClick = true;
+                this.mouseDownPosition = e.GetPosition( this );
             }
             CaptureMouse();
         }
@@ -554,7 +266,7 @@ namespace Marbles
             if (IsMouseCaptured)
             {
                 ReleaseMouseCapture();
-                if (e.ChangedButton == MouseButton.Left && !mouseWillClick) return;
+                if (e.ChangedButton == MouseButton.Left && !this.mouseWillClick) return;
                 OnClick(sender, e);
             }
         }
@@ -570,10 +282,10 @@ namespace Marbles
         {
             var mousePosition = e.GetPosition(this);
             if (e.LeftButton ==MouseButtonState.Pressed
-                && mouseWillClick
-                && (mousePosition - mouseDownPosition).LengthSquared > 5 * 5)
+                && this.mouseWillClick
+                && (mousePosition - this.mouseDownPosition).LengthSquared > 5 * 5)
             {
-                mouseWillClick = false;
+                this.mouseWillClick = false;
                 ReleaseMouseCapture();
                 DragMove();
                 return;
@@ -583,13 +295,14 @@ namespace Marbles
         //-------------------------------------------------------------------------------
         private void UpdateDisplay()
         {
-            var status = sprint.GetStatus();
+            var status = app.sprint.Update();
             if (status.mode == Sprint.Mode.Stopped || status.mode == Sprint.Mode.After)
             {
                 startSprintDialog.Visibility = Visibility.Visible;
                 this.Background = (Brush)FindResource("WindowBackground");
                 this.BorderBrush = (Brush)FindResource("WindowBorder");
-                Application.Current.Resources["CurrentForeground"] = Application.Current.Resources["WindowForeground"];
+                Application.Current.Resources["CurrentForeground"]
+                    = Application.Current.Resources["WindowForeground"];
                 this.Foreground = (Brush)FindResource("WindowForeground");
                 statusLabel.Content = "Ready";
                 timerLabel.Content = "";
@@ -601,11 +314,12 @@ namespace Marbles
                 this.Background = (Brush)FindResource("SprintBackground");
                 this.BorderBrush = (Brush)FindResource("SprintBorder");
 
-                Application.Current.Resources["CurrentForeground"] = Application.Current.Resources["SprintForeground"];
-                statusLabel.Content = "Deep Work";
+                Application.Current.Resources["CurrentForeground"]
+                    = Application.Current.Resources["SprintForeground"];
+                statusLabel.Content = $"Deep Work ({app.settings.fields.MarblesDoneToday + 1})";
                 var seconds = Math.Ceiling(status.secondsRemaining);
                 timerLabel.Content = $"{Math.Floor(seconds / 60)}:{seconds % 60:00}";
-                this.Title = "Marbles – Deep Work";
+                this.Title = $"Marbles – Deep Work ({app.settings.fields.MarblesDoneToday + 1})";
             }
             else if (status.mode == Sprint.Mode.Resting)
             {
@@ -613,40 +327,29 @@ namespace Marbles
                 this.Background = (Brush)FindResource("RestBackground");
                 this.BorderBrush = (Brush)FindResource("RestBorder");
 
-                Application.Current.Resources["CurrentForeground"] = Application.Current.Resources["RestForeground"];
-                statusLabel.Content = "Rest";
+                Application.Current.Resources["CurrentForeground"]
+                    = Application.Current.Resources["RestForeground"];
+                statusLabel.Content = $"Rest ({app.settings.fields.MarblesDoneToday + 1})";
                 var seconds = Math.Ceiling(status.secondsRemaining);
                 timerLabel.Content = $"{Math.Floor(seconds / 60)}:{seconds % 60:00}";
-                this.Title = "Marbles – Rest";
+                this.Title = $"Marbles – Rest ({app.settings.fields.MarblesDoneToday + 1})";
             }
             UpdateWindowIcon(status);
 
-
-            RenderTargetBitmap bmp = new RenderTargetBitmap(
-                (int)this.ActualWidth, (int)this.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-            bmp.Render(this);
-            
-
+            // TODO...
+            //RenderTargetBitmap bmp = new RenderTargetBitmap(
+            //    (int)this.ActualWidth, (int)this.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            //bmp.Render(this);
         }
 
         //-------------------------------------------------------------------------------
-        public void StartWork(double sprintMinutes, double restMinutes)
+        public void OnSprintStart(object sender, EventArgs e)
         {
-            this.sprint.Start(sprintMinutes, restMinutes);
             UpdateDisplay();
-
-            if (this.settings.fields.MinimizeWhenSprintStarts)
+            if (app.settings.fields.MinimizeWhenSprintStarts)
             {
                 this.WindowState = WindowState.Minimized;
             }
-        }
-
-        //-------------------------------------------------------------------------------
-        public void TryStartWork(double sprint, double rest) {
-            // Only start if we aren't started already.
-            var mode = this.sprint.GetStatus().mode;
-            if (mode != Sprint.Mode.Stopped && mode != Sprint.Mode.After) return;
-            StartWork(sprint, rest);
         }
 
         //-------------------------------------------------------------------------------
@@ -657,44 +360,54 @@ namespace Marbles
                 (bool valid, double sprint, double rest) =
                     (startSprintDialog.Content as StartSprintPage).GetSprintSettings();
                 if (!valid) return;
-                TryStartWork(sprint, rest);
+                app.TryStartWork(sprint, rest);
             }
         }
 
         //-------------------------------------------------------------------------------
         private void PopulateContextMenu()
         {
-            var status = this.sprint.GetStatus();
+            var status = app.sprint.Update();
             var menu = new ContextMenu();
             
-
-            if( status.mode == Sprint.Mode.Sprinting || status.mode == Sprint.Mode.Resting )
+            // Reset button, appears when a sprint is active.
+            if (status.mode == Sprint.Mode.Sprinting
+                || status.mode == Sprint.Mode.Resting)
             {
                 var item = new MenuItem();
                 
                 item.Header = "_Reset";
                 item.Click += (obj, e) =>
                 {
-                    MessageBoxResult result = MessageBox.Show("Are you sure you want to reset?", "Reset Marble", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    MessageBoxResult result = MessageBox.Show(
+                        "Are you sure you want to reset?",
+                        "Discard Time Block",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
                     if (result == MessageBoxResult.Yes)
                     {
-                        this.sprint.Cancel();
+                        app.sprint.Cancel();
                     }
                 };
                 menu.Items.Add(item);
                 menu.Items.Add(new Separator());
             }
+
+            // Settings button.
             {
                 var item = new MenuItem();
                 item.Header = "_Settings";
                 item.Click += (obj, e) =>
                 {
                     // Open settings.
-                    this.settings.OpenEditor();
+                    app.settings.OpenEditor();
                 };
                 menu.Items.Add(item);
             }
             menu.Items.Add(new Separator());
+
+            // Exit button.
             {
                 var item = new MenuItem();
                 item.Header = "E_xit";

@@ -6,8 +6,9 @@
       xmlns:local="clr-namespace:Marbles"
       mc:Ignorable="d" 
       d:DesignHeight="97.131" d:DesignWidth="193.852"
-      Title="Page1" Width="175" Height="80" Background="{DynamicResource WindowBackground}" Focusable="False"
-       >
+      Title="Page1" Width="175" Height="80"
+      Background="{DynamicResource WindowBackground}" Focusable="False"
+      IsVisibleChanged="OnIsVisibleChanged" >
 
     <Grid>
         <TextBox x:Name="sprintText" HorizontalAlignment="Center" Height="32" Margin="-64,0,0,0"
@@ -30,7 +31,7 @@
         </TextBox>
         <Label Content="Sprint" HorizontalAlignment="Center" Margin="-64,50,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MyWhite}" FontSize="10" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
         <Label Content="Rest" HorizontalAlignment="Center" Margin="64,50,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MyWhite}" FontSize="10" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
-        <Label Content="Press enter to start." HorizontalAlignment="Center" Margin="0,-2,0,0" VerticalAlignment="Top" Foreground="{DynamicResource DimHint}" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
+        <Label x:Name="infoLabel" Content="Press enter to start." HorizontalAlignment="Center" Margin="0,-2,0,0" VerticalAlignment="Top" Foreground="{DynamicResource DimHint}" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
 
     </Grid>
 </Page>

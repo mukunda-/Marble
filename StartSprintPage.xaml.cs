@@ -13,23 +13,54 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
+/////////////////////////////////////////////////////////////////////////////////////////
 namespace Marbles
 {
-    /// <summary>
-    /// Interaction logic for Page1.xaml
-    /// </summary>
+    //-----------------------------------------------------------------------------------
     public partial class StartSprintPage : Page
     {
+        readonly App app;
+
+        //-------------------------------------------------------------------------------
         public StartSprintPage()
         {
+            app = App.Cur;
             InitializeComponent();
+            ApplyAppSettings(App.Cur.settings);
+            app.settings.Loaded += ApplyAppSettings;
         }
+
+        //-------------------------------------------------------------------------------
+        public void ApplyAppSettings(Settings settings)
+        {
+            SetSprintSettings(
+                settings.fields.SprintTime,
+                settings.fields.RestTime);
+            UpdateInfo();
+        }
+
+        private void UpdateInfo()
+        {
+            var settings = app.settings;
+            if (settings.fields.MarblesDoneToday == 0)
+            {
+                infoLabel.Content = "Press enter to start.";
+            }
+            else
+            {
+                var m = settings.fields.MarblesDoneToday;
+                infoLabel.Content = $"{m} marble{(m == 1 ? "" : "s")} done.";
+            }
+        }
+
+        //-------------------------------------------------------------------------------
         public void SetSprintSettings(string sprint, string rest)
         {
             sprintText.Text = sprint;
             restText.Text = rest;
         }
 
+        //-------------------------------------------------------------------------------
         public (bool, double, double) GetSprintSettings()
         {
 
@@ -54,5 +85,9 @@ namespace Marbles
             return (true, sprint, rest);
         }
 
+        private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            UpdateInfo();
+        }
     }
 }

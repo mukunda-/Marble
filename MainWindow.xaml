@@ -13,11 +13,9 @@
         BorderBrush="{DynamicResource WindowBorder}"
         MouseDown="Window_MouseDown"
         MouseMove="Window_MouseMove"
-        
         MouseUp="Window_MouseUp"
         PreviewKeyDown="Window_PreviewKeyDown"
         ContextMenuOpening="Window_ContextMenuOpening"
-        Closing="OnClosing"
         FontFamily="Segoe UI Light" Foreground="{DynamicResource WindowForeground}">
     <Window.Resources>
     </Window.Resources>
