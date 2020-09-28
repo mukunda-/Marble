@@ -5,5 +5,3 @@ There are different ways to perform deep work. One of the popular methods is the
 You can try different intervals; everyone works differently. Some people avoid rest periods altogether during work. I do a loose Pomodoro where I focus on single tasks to completion during a sprint period, and then do casual work and check what my colleagues are up to during a rest period.
 
 Why is it called Marbles? [Andy Tryba likes to use marbles](https://medium.com/@andy.tryba/how-10-marbles-became-my-most-important-work-from-home-productivity-tool-e19f34a61995-tool-e19f34a61995) – one marble per 30 minutes of work, and the goal is 10 marbles a day.
-
-[**Windows Binaries**](https://mukunda.com/marbles.zip) – Requires .NET Framework 4.7.2
