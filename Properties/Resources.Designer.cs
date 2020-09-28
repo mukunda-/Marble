@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Marble.Properties {
+namespace Marbles.Properties {
     using System;
     
     

@@ -1,11 +1,11 @@
-﻿<Window x:Class="Marble.MainWindow"
+﻿<Window x:Class="Marbles.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Marble"
+        xmlns:local="clr-namespace:Marbles"
         mc:Ignorable="d"
-        Title="Marble" Height="80" Width="175"
+        Title="Marbles" Height="80" Width="175"
         Background="{DynamicResource WindowBackground}"
         WindowStyle="None"
         ResizeMode="CanMinimize"
@@ -17,6 +17,7 @@
         MouseUp="Window_MouseUp"
         PreviewKeyDown="Window_PreviewKeyDown"
         ContextMenuOpening="Window_ContextMenuOpening"
+        Closing="OnClosing"
         FontFamily="Segoe UI Light" Foreground="{DynamicResource WindowForeground}">
     <Window.Resources>
     </Window.Resources>

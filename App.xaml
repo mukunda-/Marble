@@ -1,7 +1,7 @@
-﻿<Application x:Class="Marble.App"
+﻿<Application x:Class="Marbles.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Marble"
+             xmlns:local="clr-namespace:Marbles"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
 

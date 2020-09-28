@@ -1,13 +1,7 @@
-﻿// Marble
+﻿// Marbles
 // (C) 2020 Mukunda Johnson
 //
-// Copyright <YEAR> <COPYRIGHT HOLDER>
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// See LICENSE.TXT
 
 using System;
 using System.Collections.Generic;
@@ -27,19 +21,218 @@ using System.Windows.Shell;
 
 using System.Windows.Interop;
 using System.Runtime.InteropServices;
+using System.ComponentModel;
+using System.IO;
 
-///////////////////////////////////////////////////////////////////////////////
-namespace Marble
+/////////////////////////////////////////////////////////////////////////////////////////
+namespace Marbles
 {
-    //-------------------------------------------------------------------------
+    public class DelayedCall
+    {
+        public delegate void Callback();
+
+        public int serial;
+
+        public void Call(Callback callback, int delayMs = 0)
+        {
+            serial++;
+            if (delayMs == 0)
+            {
+                callback();
+            }
+
+            int mySerial = serial;
+            Task.Delay(delayMs).ContinueWith(t =>
+            {
+                if (mySerial == serial)
+                {
+                    Application.Current.Dispatcher.Invoke(callback);
+                }
+                else
+                {
+                    // This call was cancelled.
+                }
+            });
+        }
+    }
+    //-----------------------------------------------------------------------------------
+    public class Settings
+    {
+        private readonly string name = "settings";
+        private readonly System.IO.FileSystemWatcher settingsWatcher;
+
+        // To ignore reloading configuration when the app is changing the settings file.
+        // Also used to prevent some "bounce trigger" issues that the filesystem watcher
+        //  has.
+        private DateTime ignoreFileChangesAt = DateTime.MinValue;
+
+        public event EventHandler Loaded;
+
+        DelayedCall loadCaller;
+
+        public class Fields 
+        {
+            // Using strings for these two so it keeps the text boxes set as is.
+            public string SprintTime { get; set; } = "25";
+            public string RestTime { get; set; } = "5";
+
+            public int MarblesDoneToday { get; set; } = 0;
+            public string DateToday { get; set; } = "";
+            public bool ShowSprintBadge { get; set; } = true;
+            public bool ShowRestBadge { get; set; } = true;
+            public bool MinimizeWhenSprintStarts { get; set; } = false;
+            public bool PopupWhenRestStarts { get; set; } = false;
+            public bool ColorTaskbarDuringSprint { get; set; } = true;
+            public bool ColorTaskbarDuringRest { get; set; } = true;
+            public bool ShowYellowFlashAfterRest { get; set; } = true;
+            public bool WindowAlwaysOnTop { get; set; } = false;
+        };
+
+        public Fields fields = null;
+        private Task queueLoadTask = null;
+
+        //-------------------------------------------------------------------------------
+        public Settings()
+        {
+            loadCaller = new DelayedCall();
+            System.IO.Directory.CreateDirectory(AppDataFolder);
+            Load();
+
+            settingsWatcher = new System.IO.FileSystemWatcher
+            {
+                NotifyFilter = System.IO.NotifyFilters.LastWrite,
+                Path         = AppDataFolder,
+                Filter       = name + ".json"
+            };
+            settingsWatcher.Changed += (sender, e) =>
+            {
+                if (e.ChangeType != System.IO.WatcherChangeTypes.Changed) return;
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if ((DateTime.Now - ignoreFileChangesAt).Milliseconds < 100)
+                    {
+                        return;
+                    }
+                    ignoreFileChangesAt = DateTime.Now;
+                    System.Diagnostics.Debug.WriteLine("Reloading settings.");
+                    QueueLoad(250);
+                });
+            };
+            settingsWatcher.EnableRaisingEvents = true;
+        }
+        
+        public static string AppDataFolder
+        {
+            get
+            {
+                return System.IO.Path.Combine(Environment.GetFolderPath(
+                    Environment.SpecialFolder.ApplicationData), "Marbles");
+            }
+        }
+
+        //-------------------------------------------------------------------------------
+        public string SettingsFilePath
+        {
+            get
+            {
+                return System.IO.Path.Combine(AppDataFolder, this.name + ".json");
+            }
+        }
+
+        //-------------------------------------------------------------------------------
+        public void OpenEditor()
+        {
+            Save();
+            System.Diagnostics.Process.Start(SettingsFilePath);
+        }
+
+        public void QueueLoad( int delayMs = 100 )
+        {
+            loadCaller.Call(Load, delayMs);
+        }
+
+        //-------------------------------------------------------------------------------
+        public void Load()
+        {
+            if (System.IO.File.Exists(SettingsFilePath))
+            {
+                var options = new System.Text.Json.JsonSerializerOptions
+                {
+                    ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip,
+                    AllowTrailingCommas = true,
+                    PropertyNameCaseInsensitive = false,
+                };
+
+                try
+                {
+                    string json;
+                    try
+                    {
+                        json = System.IO.File.ReadAllText(SettingsFilePath);
+                    }
+                    catch (IOException e)
+                    {
+                        // IO error (like they are still writing the file). Wait and try again.
+                        QueueLoad(1000);
+                        return;
+                    }
+                    this.fields = System.Text.Json.JsonSerializer.Deserialize<Fields>(json, options);
+                }
+                catch
+                {
+                    
+                }
+
+                if (this.fields == null) this.fields = new Fields();
+
+                // Sanitize.
+                if (this.fields.MarblesDoneToday < 0) this.fields.MarblesDoneToday = 0;
+            }
+            else
+            {
+                // Will use default values.
+                this.fields = new Fields();
+                Save();
+            }
+
+            EventHandler handler = Loaded;
+            handler?.Invoke(this, null);
+        }
+
+        //-------------------------------------------------------------------------------
+        public void Save()
+        {
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+            };
+            string text = System.Text.Json.JsonSerializer.Serialize(fields, options);
+
+            ignoreFileChangesAt = DateTime.Now;
+            try
+            {
+                System.IO.File.WriteAllText(SettingsFilePath, text);
+            }
+            catch (IOException e)
+            {
+                // Can't save settings. Oh well. Not critical.
+            }
+        }
+    }
+
+    //-----------------------------------------------------------------------------------
     public class Sprint {
         // For speeding things up to test out the system.
         public static double debugTimeScale = 1.0;
 
         bool running;
-        double sprintMinutes { get; set; }
-        double restMinutes { get; set; }
-        DateTime startTime { get; set; }
+        bool completed = false;
+        double SprintMinutes { get; set; }
+        double RestMinutes { get; set; }
+        DateTime StartTime { get; set; }
+
+        public event EventHandler SprintCompleted;
 
         public enum Mode {
             Stopped,
@@ -59,10 +252,11 @@ namespace Marble
 
         public void Start( double sprintMinutes, double restMinutes)
         {
-            this.sprintMinutes = sprintMinutes;
-            this.restMinutes = restMinutes;
-            this.startTime = DateTime.Now;
+            this.SprintMinutes = sprintMinutes;
+            this.RestMinutes = restMinutes;
+            this.StartTime = DateTime.Now;
             this.running = true;
+            this.completed = false;
         }
 
         public void Cancel()
@@ -71,11 +265,18 @@ namespace Marble
             this.running = false;
         }
 
+        private void SetComplete()
+        {
+            if (this.completed) return;
+            this.completed = true;
+            SprintCompleted?.Invoke(this, null);
+        }
+
         public Status GetStatus()
         {
             Status status;
-            status.sprintMinutes = this.sprintMinutes;
-            status.restMinutes = this.restMinutes;
+            status.sprintMinutes = this.SprintMinutes;
+            status.restMinutes = this.RestMinutes;
 
             if (!running)
             {
@@ -86,26 +287,28 @@ namespace Marble
             }
             else
             {
-                double timeElapsed = (DateTime.Now - this.startTime).TotalSeconds * debugTimeScale;
+                double timeElapsed = (DateTime.Now - this.StartTime).TotalSeconds * debugTimeScale;
                 status.totalElapsedSeconds = timeElapsed;
 
-                if (timeElapsed < this.sprintMinutes * 60.0)
+                if (timeElapsed < this.SprintMinutes * 60.0)
                 {
                     status.mode = Mode.Sprinting;
-                    status.secondsRemaining = this.sprintMinutes * 60.0 - timeElapsed;
+                    status.secondsRemaining = this.SprintMinutes * 60.0 - timeElapsed;
                     status.secondsInto = timeElapsed;
                 }
-                else if (timeElapsed < (this.sprintMinutes + this.restMinutes) * 60.0)
+                else if (timeElapsed < (this.SprintMinutes + this.RestMinutes) * 60.0)
                 {
+                    SetComplete();
                     status.mode = Mode.Resting;
-                    status.secondsRemaining = (this.sprintMinutes + this.restMinutes) * 60.0 - timeElapsed;
-                    status.secondsInto = timeElapsed - this.sprintMinutes * 60;
+                    status.secondsRemaining = (this.SprintMinutes + this.RestMinutes) * 60.0 - timeElapsed;
+                    status.secondsInto = timeElapsed - this.SprintMinutes * 60;
                 }
                 else
                 {
+                    SetComplete();
                     status.mode = Mode.After;
-                    status.secondsRemaining = (this.sprintMinutes + this.restMinutes) * 60 - timeElapsed;
-                    status.secondsInto = timeElapsed - (this.sprintMinutes + this.restMinutes) * 60;
+                    status.secondsRemaining = (this.SprintMinutes + this.RestMinutes) * 60 - timeElapsed;
+                    status.secondsInto = timeElapsed - (this.SprintMinutes + this.RestMinutes) * 60;
                 }
             }
 
@@ -113,7 +316,7 @@ namespace Marble
         }
     }
 
-    //-------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
     public partial class MainWindow : Window
     {
         byte[] pixels = new byte[32 * 4 * 32];
@@ -121,22 +324,81 @@ namespace Marble
         private static readonly Typeface ICON_TYPEFACE = new Typeface("Arial");
 
         Sprint sprint = new Sprint();
-        
-        private void ClickTest() {
+        Settings settings;
 
-        }
-
+        //-------------------------------------------------------------------------------
         public MainWindow()
         {
             InitializeComponent();
 
+            this.settings = new Settings();
+            this.settings.Loaded += OnSettingsLoaded;
+            OnSettingsLoaded(null, null);
+            this.sprint.SprintCompleted += OnSprintCompleted;
+
             System.Windows.Threading.DispatcherTimer dispatcherTimer = new System.Windows.Threading.DispatcherTimer();
-            dispatcherTimer.Tick += Refresh;
+            dispatcherTimer.Tick += OnPeriodicRefresh;
             dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 250);
             dispatcherTimer.Start();
-
         }
 
+        //-------------------------------------------------------------------------------
+        private void UpdateMarblesToday( bool increment )
+        {
+            bool save = false;
+            string dateString = DateTime.Now.ToString("MM/dd/yyyy");
+            if (dateString != this.settings.fields.DateToday)
+            {
+                this.settings.fields.DateToday = dateString;
+                this.settings.fields.MarblesDoneToday = 0;
+                save = true;
+            }
+
+            if (increment)
+            {
+                this.settings.fields.MarblesDoneToday++;
+            }
+
+            if (save)
+            {
+                if (this.settings.fields.MarblesDoneToday == 0)
+                {
+                    statusLabel.Content = "Press enter to start.";
+                }
+                else
+                {
+                    var m = this.settings.fields.MarblesDoneToday;
+                    statusLabel.Content = $"{m} marble{(m == 1 ? "" : "s")} done.";
+                }
+
+                this.settings.Save();
+            }
+        }
+
+        //-------------------------------------------------------------------------------
+        private void OnSettingsLoaded(object sender, EventArgs e)
+        {
+            //(startSprintDialog.Content as StartSprintPage).SetSprintSettings(
+            //    this.settings.fields.SprintTime, this.settings.fields.RestTime);
+            this.lastIconSerial = "";
+            this.lastIconUpdate = DateTime.MinValue;
+            this.Topmost = this.settings.fields.WindowAlwaysOnTop;
+
+            UpdateMarblesToday(false);
+        }
+
+        private void OnSprintCompleted(object sender, EventArgs e)
+        {
+            UpdateMarblesToday(true);
+        }
+
+        //-------------------------------------------------------------------------------
+        private void OnClosing(object sender, EventArgs e)
+        {
+            this.settings.Save();
+        }
+
+        //-------------------------------------------------------------------------------
         private void TimerTest(object sender, EventArgs e)
         {
 
@@ -145,23 +407,17 @@ namespace Marble
             
         }
 
-        private void Refresh(object sender, EventArgs e)
+        //-------------------------------------------------------------------------------
+        private void OnPeriodicRefresh(object sender, EventArgs e)
         {
-            //var random = new Random();
-            //var pixels = new byte[32 * 4 * 32];
-            //random.NextBytes(pixels);
-            //this.Icon = BitmapSource.Create(32, 32, 96, 96, PixelFormats.Bgra32, null, pixels, 32 * 4);
-            
-
             UpdateDisplay();
-            
-            
         }
 
 
         private DateTime lastIconUpdate;
         private string lastIconSerial = "";
 
+        //-------------------------------------------------------------------------------
         private void UpdateWindowIcon(Sprint.Status status)
         {
             // Throttle only every 0.5 seconds
@@ -170,6 +426,7 @@ namespace Marble
                 return;
             }
             this.lastIconUpdate = DateTime.Now;
+            
 
             SolidColorBrush iconBrush;
             string squareColor;
@@ -243,7 +500,7 @@ namespace Marble
                 
                 drawingContext.DrawRoundedRectangle(
                     iconBrush,
-                    null,//new Pen((SolidColorBrush)(new BrushConverter().ConvertFrom("#fff")), 2),
+                    null,
                     new Rect(0, 0, 16, 16),
                     0, 0);
 
@@ -251,23 +508,7 @@ namespace Marble
                 {
 
                     var textBrush = brushConverter.ConvertFrom("#fff") as SolidColorBrush;
-                    /*
-                    for (int i = -1; i <= 1; i++)
-                    {
-                        var number = currentNumber + i;
-                        if (number < 0 || number > maxNumber) continue;
 
-                        FormattedText text = new FormattedText(
-                            number.ToString(), System.Globalization.CultureInfo.InvariantCulture,
-                            FlowDirection.LeftToRight, ICON_TYPEFACE,
-                            number < 10 ? 24.0 : 18.0, textBrush, ppd);
-
-                        text.SetFontWeight(FontWeights.Bold);
-
-                        drawingContext.DrawText(text, new Point(
-                                    16 + (number - remaining) * spacing - text.Width / 2,
-                                    16 - text.Height / 2));
-                    }*/
                     FormattedText text = new FormattedText(
                             currentNumber.ToString(), System.Globalization.CultureInfo.InvariantCulture,
                             FlowDirection.LeftToRight, ICON_TYPEFACE,
@@ -282,12 +523,7 @@ namespace Marble
                 }
                 else if (textType == "dot")
                 {
-                    /*
-                    drawingContext.DrawRoundedRectangle(
-                        brushConverter.ConvertFrom("#aaa") as SolidColorBrush,
-                        null,//new Pen((SolidColorBrush)(new BrushConverter().ConvertFrom("#fff")), 2),
-                        new Rect(8, 8, 16, 16),
-                        0, 0);*/
+                    // Unused.
                 }
                 else if (textType == "none")
                 {
@@ -296,10 +532,10 @@ namespace Marble
             }
 
             this.TaskbarItemInfo.Overlay = new DrawingImage(visual.Drawing);
-            //this.Icon = 
         }
 
 
+        //-------------------------------------------------------------------------------
         bool mouseWillClick = false;
         Point mouseDownPosition;
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
@@ -312,6 +548,7 @@ namespace Marble
             CaptureMouse();
         }
 
+        //-------------------------------------------------------------------------------
         private void Window_MouseUp(object sender, MouseButtonEventArgs e)
         {
             if (IsMouseCaptured)
@@ -322,14 +559,13 @@ namespace Marble
             }
         }
 
+        //-------------------------------------------------------------------------------
         private void OnClick(object sender, MouseButtonEventArgs e)
         {
-            var status = sprint.GetStatus();
-            if (status.mode == Sprint.Mode.Stopped)
-            {
-            }
+
         }
 
+        //-------------------------------------------------------------------------------
         private void Window_MouseMove(object sender, MouseEventArgs e)
         {
             var mousePosition = e.GetPosition(this);
@@ -344,6 +580,7 @@ namespace Marble
             }
         }
 
+        //-------------------------------------------------------------------------------
         private void UpdateDisplay()
         {
             var status = sprint.GetStatus();
@@ -356,7 +593,7 @@ namespace Marble
                 this.Foreground = (Brush)FindResource("WindowForeground");
                 statusLabel.Content = "Ready";
                 timerLabel.Content = "";
-                this.Title = "Marble";
+                this.Title = "Marbles";
             }
             else if (status.mode == Sprint.Mode.Sprinting)
             {
@@ -368,7 +605,7 @@ namespace Marble
                 statusLabel.Content = "Deep Work";
                 var seconds = Math.Ceiling(status.secondsRemaining);
                 timerLabel.Content = $"{Math.Floor(seconds / 60)}:{seconds % 60:00}";
-                this.Title = "Marble – Deep Work";
+                this.Title = "Marbles – Deep Work";
             }
             else if (status.mode == Sprint.Mode.Resting)
             {
@@ -380,7 +617,7 @@ namespace Marble
                 statusLabel.Content = "Rest";
                 var seconds = Math.Ceiling(status.secondsRemaining);
                 timerLabel.Content = $"{Math.Floor(seconds / 60)}:{seconds % 60:00}";
-                this.Title = "Marble – Rest";
+                this.Title = "Marbles – Rest";
             }
             UpdateWindowIcon(status);
 
@@ -392,14 +629,19 @@ namespace Marble
 
         }
 
+        //-------------------------------------------------------------------------------
         public void StartWork(double sprintMinutes, double restMinutes)
         {
-            var mode = this.sprint.GetStatus().mode;
-            if (mode != Sprint.Mode.Stopped && mode != Sprint.Mode.After) return;
             this.sprint.Start(sprintMinutes, restMinutes);
             UpdateDisplay();
+
+            if (this.settings.fields.MinimizeWhenSprintStarts)
+            {
+                this.WindowState = WindowState.Minimized;
+            }
         }
 
+        //-------------------------------------------------------------------------------
         public void TryStartWork(double sprint, double rest) {
             // Only start if we aren't started already.
             var mode = this.sprint.GetStatus().mode;
@@ -407,6 +649,7 @@ namespace Marble
             StartWork(sprint, rest);
         }
 
+        //-------------------------------------------------------------------------------
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Return)
@@ -418,6 +661,7 @@ namespace Marble
             }
         }
 
+        //-------------------------------------------------------------------------------
         private void PopulateContextMenu()
         {
             var status = this.sprint.GetStatus();
@@ -428,7 +672,7 @@ namespace Marble
             {
                 var item = new MenuItem();
                 
-                item.Header = "Reset";
+                item.Header = "_Reset";
                 item.Click += (obj, e) =>
                 {
                     MessageBoxResult result = MessageBox.Show("Are you sure you want to reset?", "Reset Marble", MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -438,20 +682,22 @@ namespace Marble
                     }
                 };
                 menu.Items.Add(item);
+                menu.Items.Add(new Separator());
             }
             {
                 var item = new MenuItem();
-                item.Header = "Settings";
+                item.Header = "_Settings";
                 item.Click += (obj, e) =>
                 {
                     // Open settings.
+                    this.settings.OpenEditor();
                 };
                 menu.Items.Add(item);
             }
             menu.Items.Add(new Separator());
             {
                 var item = new MenuItem();
-                item.Header = "Exit";
+                item.Header = "E_xit";
                 item.Click += (obj, e) =>
                 {
                     Application.Current.Shutdown();
@@ -462,6 +708,7 @@ namespace Marble
             this.ContextMenu = menu;
         }
 
+        //-------------------------------------------------------------------------------
         private void Window_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
             PopulateContextMenu();

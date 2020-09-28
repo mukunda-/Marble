@@ -13,7 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace Marble
+namespace Marbles
 {
     /// <summary>
     /// Interaction logic for Page1.xaml
@@ -24,8 +24,14 @@ namespace Marble
         {
             InitializeComponent();
         }
+        public void SetSprintSettings(string sprint, string rest)
+        {
+            sprintText.Text = sprint;
+            restText.Text = rest;
+        }
 
-        public (bool, double, double) GetSprintSettings() {
+        public (bool, double, double) GetSprintSettings()
+        {
 
             double sprint, rest;
             if (!double.TryParse(sprintText.Text, out sprint)

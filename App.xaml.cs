@@ -6,13 +6,21 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 
-namespace Marble
+namespace Marbles
 {
     /// <summary>
     /// Interaction logic for App.xaml
     /// </summary>
     public partial class App : Application
     {
+        public static App MyApp
+        {
+            get
+            {
+                return Application.Current as App;
+            }
+        }
+
 
     }
 }
