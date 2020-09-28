@@ -15,7 +15,7 @@
                  TextWrapping="Wrap" Text="25" VerticalAlignment="Center" Width="48" FontSize="20" 
                  FontWeight="Bold" TextAlignment="Center" BorderThickness="0" Background="#FF222222" 
                  Foreground="{DynamicResource MyWhite}" BorderBrush="{DynamicResource MyWhite}"
-                 ToolTip="Minutes to spend in deep work.">
+                 ToolTip="Minutes to spend in deep work." TextChanged="sprintText_TextChanged">
             <TextBox.ContextMenu>
                 <ContextMenu Visibility="Hidden"/>
             </TextBox.ContextMenu>
@@ -24,12 +24,12 @@
                  TextWrapping="Wrap" Text="5" VerticalAlignment="Center" Width="48" FontSize="20" 
                  FontWeight="Bold" TextAlignment="Center" BorderThickness="0" Background="#FF222222" 
                  Foreground="{DynamicResource MyWhite}" BorderBrush="{DynamicResource MyWhite}"
-                 ToolTip="Minutes to wait after deep work to let your brain 🧠 rest.">
+                 ToolTip="Minutes to wait after deep work to let your brain 🧠 rest." TextChanged="restText_TextChanged">
             <TextBox.ContextMenu>
                 <ContextMenu Visibility="Hidden"/>
             </TextBox.ContextMenu>
         </TextBox>
-        <Label Content="Sprint" HorizontalAlignment="Center" Margin="-64,50,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MyWhite}" FontSize="10" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
+        <Label Content="Deep Work" HorizontalAlignment="Center" Margin="-64,50,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MyWhite}" FontSize="10" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
         <Label Content="Rest" HorizontalAlignment="Center" Margin="64,50,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MyWhite}" FontSize="10" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
         <Label x:Name="infoLabel" Content="Press enter to start." HorizontalAlignment="Center" Margin="0,-2,0,0" VerticalAlignment="Top" Foreground="{DynamicResource DimHint}" FontFamily="{DynamicResource LabelFont}" IsHitTestVisible="False"/>
 

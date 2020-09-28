@@ -89,5 +89,15 @@ namespace Marbles
         {
             UpdateInfo();
         }
+
+        private void sprintText_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            app.settings.fields.SprintTime = sprintText.Text;
+        }
+
+        private void restText_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            app.settings.fields.RestTime = restText.Text;
+        }
     }
 }
