@@ -318,10 +318,10 @@ namespace Marbles
 
                 Application.Current.Resources["CurrentForeground"]
                     = Application.Current.Resources["RestForeground"];
-                statusLabel.Content = $"Rest ({app.settings.fields.MarblesDoneToday + 1})";
+                statusLabel.Content = $"Rest ({app.settings.fields.MarblesDoneToday})";
                 var seconds = Math.Ceiling(status.secondsRemaining);
                 timerLabel.Content = $"{Math.Floor(seconds / 60)}:{seconds % 60:00}";
-                this.Title = $"Marbles – Rest ({app.settings.fields.MarblesDoneToday + 1})";
+                this.Title = $"Marbles – Rest ({app.settings.fields.MarblesDoneToday})";
             }
             UpdateWindowIcon(status);
 
